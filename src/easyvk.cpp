@@ -173,7 +173,18 @@ namespace easyvk {
 		auto specInfo = vk::SpecializationInfo(1, specMap, sizeof(uint32_t), specMapContent);
 		auto stageCI = vk::PipelineShaderStageCreateInfo(vk::PipelineShaderStageCreateFlags(), vk::ShaderStageFlagBits::eCompute, shaderModule, "litmus_test", &specInfo);
 		auto pipelineCI = vk::ComputePipelineCreateInfo({}, stageCI, pipelineLayout);
-		pipeline = device.device.createComputePipeline(nullptr, pipelineCI, nullptr);
+		auto pipelineCreateResult = device.device.createComputePipeline(nullptr, pipelineCI, nullptr);
+                switch (pipelineCreateResult.result) {
+                        case vk::Result::eSuccess:
+                                pipeline = pipelineCreateResult.value;
+                                break;
+                        case vk::Result::ePipelineCompileRequiredEXT:
+                                std::cout << "uh what\n";
+				break;
+			default:
+				// should never get here
+				break;
+		}
 		device.computeCommandBuffer.begin(vk::CommandBufferBeginInfo());
 		device.computeCommandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 		device.computeCommandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, {descriptorSet}, {});
