@@ -56,19 +56,21 @@ namespace easyvk {
 
 	class Program {
 		public:
-			Program(Device &_device, const char* filepath, std::vector<easyvk::Buffer> buffers);
+			Program(Device &_device, const char* filepath, std::vector<easyvk::Buffer*> buffers);
 			void prepare();
 			void run();
 			void setWorkgroups(uint32_t _numWorkgroups);
 			void setWorkgroupSize(uint32_t _workgroupSize);
 			void teardown();
 		private:
-			std::vector<easyvk::Buffer> buffers;
+			std::vector<easyvk::Buffer*> buffers;
 			vk::ShaderModule shaderModule;
 			easyvk::Device &device;
 			vk::DescriptorSetLayout descriptorSetLayout;
 			vk::DescriptorPool descriptorPool;
 			vk::DescriptorSet descriptorSet;
+			std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
+			std::vector<vk::DescriptorBufferInfo> bufferInfos;
 			vk::PipelineLayout pipelineLayout;
 			vk::Pipeline pipeline;
 			uint32_t numWorkgroups;

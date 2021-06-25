@@ -21,12 +21,15 @@ namespace easyvk {
                 std::vector<const char *> enabledLayers;
                 std::vector<const char *> enabledExtensions;
                 if (enableValidationLayers) {
-                    enabledLayers.push_back("VK_LAYER_LUNARG_standard_validation");
+                    enabledLayers.push_back("VK_LAYER_KHRONOS_validation");
                     enabledExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+		    //enabledExtensions.push_back("VK_KHR_shader_non_semantic_info");
                 }
                 vk::ApplicationInfo appInfo("Litmus Tester", 0, "LSD Lab", 0, VK_API_VERSION_1_0);
                 vk::InstanceCreateInfo createInfo(vk::InstanceCreateFlags(), &appInfo, enabledLayers.size(), enabledLayers.data(), enabledExtensions.size(), enabledExtensions.data());
+		std::cout << "Creating instance\n";
                 instance = vk::createInstance(createInfo);
+		std::cout << "Instance created\n";
                 if (enableValidationLayers) {
 		    auto debugCreateInfo = VkDebugReportCallbackCreateInfoEXT{};
 		    debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
@@ -109,13 +112,15 @@ namespace easyvk {
 	}
 
 	void Device::teardown() {
+		std::cout << "Destroying command pool\n";
 		device.destroyCommandPool(computePool);
+		std::cout << "Command pool destroyed\n";
 		device.destroy();
 	}
 
 	Buffer::Buffer(easyvk::Device &_device, uint32_t size) :
 		device(_device),
-		buffer(device.device.createBuffer({ {}, size * sizeof(uint32_t), vk::BufferUsageFlagBits::eStorageBuffer})) {
+		buffer(_device.device.createBuffer({ {}, size * sizeof(uint32_t), vk::BufferUsageFlagBits::eStorageBuffer})) {
 		auto memId = device.selectMemory(buffer, vk::MemoryPropertyFlagBits::eHostVisible);
 		memory = device.device.allocateMemory({device.device.getBufferMemoryRequirements(buffer).size, memId});
 		device.device.bindBufferMemory(buffer, memory, 0);
@@ -152,19 +157,19 @@ namespace easyvk {
 		for (int i = 0; i < size; i++) {
 			layouts.push_back(vk::DescriptorSetLayoutBinding(i, vk::DescriptorType::eStorageBuffer, 1, vk::ShaderStageFlagBits::eCompute));
 		}
-		auto createInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), uint32_t(size), layouts.data());
+		auto createInfo = vk::DescriptorSetLayoutCreateInfo(vk::DescriptorSetLayoutCreateFlags(), size, layouts.data());
 		return device.device.createDescriptorSetLayout(createInfo);
 	}
 
-	std::vector<vk::WriteDescriptorSet> writeSets(vk::DescriptorSet& descriptorSet, std::vector<easyvk::Buffer> buffers) {
-		std::vector<vk::WriteDescriptorSet> writeDescriptorSets;
-		std::vector<vk::DescriptorBufferInfo> bufferInfos;
+	void writeSets(
+			vk::DescriptorSet& descriptorSet, 
+			std::vector<easyvk::Buffer*> buffers, 
+			std::vector<vk::WriteDescriptorSet>& writeDescriptorSets,
+			std::vector<vk::DescriptorBufferInfo>& bufferInfos) {
 		for (int i = 0; i < buffers.size(); i++) {
-			bufferInfos.push_back(vk::DescriptorBufferInfo(buffers[i].buffer, 0, VK_WHOLE_SIZE));
+			bufferInfos.push_back(vk::DescriptorBufferInfo(buffers[i]->buffer, 0, VK_WHOLE_SIZE));
 			writeDescriptorSets.push_back(vk::WriteDescriptorSet(descriptorSet, i, 0, 1, vk::DescriptorType::eStorageBuffer, nullptr, &bufferInfos[i], nullptr));
 		}
-		return writeDescriptorSets;
-
 	}
 
 	void Program::prepare() {
@@ -177,6 +182,7 @@ namespace easyvk {
                 switch (pipelineCreateResult.result) {
                         case vk::Result::eSuccess:
                                 pipeline = pipelineCreateResult.value;
+				std::cout << "pipeline created\n";
                                 break;
                         case vk::Result::ePipelineCompileRequiredEXT:
                                 std::cout << "uh what\n";
@@ -188,6 +194,7 @@ namespace easyvk {
 		device.computeCommandBuffer.begin(vk::CommandBufferBeginInfo());
 		device.computeCommandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 		device.computeCommandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, {descriptorSet}, {});
+		std::cout << "Dispatching command buffer\n";
 		device.computeCommandBuffer.dispatch(numWorkgroups, 1, 1);
 		device.computeCommandBuffer.end();
 	}
@@ -195,8 +202,11 @@ namespace easyvk {
 	void Program::run() {
 		auto submitInfo = vk::SubmitInfo(0, nullptr, nullptr, 1, &device.computeCommandBuffer);
 		auto queue = device.computeQueue();
+		std::cout << "Submitting to queue\n";
 		queue.submit({submitInfo}, nullptr);
+		std::cout << "Waiting for program to finish\n";
 		queue.waitIdle();
+		std::cout << "Program finished\n";
 	}
 
 	void Program::setWorkgroups(uint32_t _numWorkgroups) {
@@ -207,18 +217,24 @@ namespace easyvk {
 		workgroupSize = _workgroupSize;
 	}
 
-	Program::Program(easyvk::Device &_device, const char* filepath, std::vector<easyvk::Buffer> _buffers) :
+	Program::Program(easyvk::Device &_device, const char* filepath, std::vector<easyvk::Buffer*> _buffers) :
 		device(_device),
-	        shaderModule(initShaderModule(_device, filepath)),
-		buffers(_buffers),
-		descriptorSetLayout(createDescriptorSetLayout(_device, buffers.size())) {
+	        shaderModule(initShaderModule(_device, filepath)) {
+			buffers = _buffers;
+			descriptorSetLayout = createDescriptorSetLayout(device, buffers.size());
 			vk::PipelineLayoutCreateInfo createInfo(vk::PipelineLayoutCreateFlags(), 1, &descriptorSetLayout);
 			pipelineLayout = device.device.createPipelineLayout(createInfo);
 			auto poolSize = vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, buffers.size());
 			auto descriptorSizes = std::array<vk::DescriptorPoolSize, 1>({poolSize});
 			descriptorPool = device.device.createDescriptorPool({vk::DescriptorPoolCreateFlags(), 1, uint32_t(descriptorSizes.size()), descriptorSizes.data()});
-			descriptorSet = device.device.allocateDescriptorSets({descriptorPool, 1, &descriptorSetLayout})[0];
-			device.device.updateDescriptorSets(writeSets(descriptorSet, buffers), {});
+			descriptorSet = device.device.allocateDescriptorSets({descriptorPool, 1, &descriptorSetLayout}).front();
+			writeSets(descriptorSet, buffers, writeDescriptorSets, bufferInfos);
+			for (int i = 0; i < 4; i++) {
+				std::cout << "c[" << i << "]: " << buffers[2]->load(i) << "\n";
+			}
+			std::cout << "Updating descriptor sets\n";
+			device.device.updateDescriptorSets(writeDescriptorSets, {});
+			std::cout << "Descriptor sets updated\n";
 	}
 
 	void Program::teardown() {
