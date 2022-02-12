@@ -193,6 +193,13 @@ namespace easyvk {
 		device.computeCommandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 		device.computeCommandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, {descriptorSet}, {});
 		device.computeCommandBuffer.dispatch(numWorkgroups, 1, 1);
+		device.computeCommandBuffer.pipelineBarrier(
+			vk::PipelineStageFlagBits::eComputeShader, 
+			vk::PipelineStageFlagBits::eHost, 
+			vk::DependencyFlagBits::eViewLocal, 
+			{vk::MemoryBarrier(vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eHostRead)}, 
+			{}, 
+			{});
 		device.computeCommandBuffer.end();
 	}
 
