@@ -196,7 +196,7 @@ namespace easyvk {
 		device.computeCommandBuffer.pipelineBarrier(
 			vk::PipelineStageFlagBits::eComputeShader, 
 			vk::PipelineStageFlagBits::eHost, 
-			vk::DependencyFlagBits::eViewLocal, 
+			static_cast<vk::DependencyFlagBits>(0),
 			{vk::MemoryBarrier(vk::AccessFlagBits::eShaderWrite, vk::AccessFlagBits::eHostRead)}, 
 			{}, 
 			{});
