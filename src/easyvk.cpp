@@ -223,7 +223,7 @@ namespace easyvk {
 	        shaderModule(initShaderModule(_device, filepath)),
        		buffers(_buffers) {
 			descriptorSetLayout = createDescriptorSetLayout(device, buffers.size());
-			vk::PipelineLayoutCreateInfo createInfo(vk::PipelineLayoutCreateFlags(), 1, &descriptorSetLayout);
+			auto createInfo = vk::PipelineLayoutCreateInfo(static_cast<vk::PipelineLayoutCreateFlags>(0), descriptorSetLayout);
 			pipelineLayout = device.device.createPipelineLayout(createInfo);
 			auto poolSize = vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, buffers.size());
 			auto descriptorSizes = std::array<vk::DescriptorPoolSize, 1>({poolSize});
