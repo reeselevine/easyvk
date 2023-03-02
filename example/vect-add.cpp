@@ -5,8 +5,10 @@
 const int size = 4;
 
 int main(int argc, char* argv[]) {
-	auto instance = easyvk::Instance(false);
+	auto instance = easyvk::Instance(true);
 	auto device = instance.devices().at(0);
+	std::cout << "Using device: " << device.properties().deviceName << "\n";
+
 	auto a = easyvk::Buffer(device, size);
 	auto b = easyvk::Buffer(device, size);
 	auto c = easyvk::Buffer(device, size);
