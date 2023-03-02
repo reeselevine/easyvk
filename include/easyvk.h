@@ -3,8 +3,6 @@
 
 namespace easyvk {
 
-	const uint32_t push_constant_size_bytes = 12;
-
 	class Device;
 	class Buffer;
 

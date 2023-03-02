@@ -192,9 +192,6 @@ namespace easyvk {
 		device.computeCommandBuffer.begin(vk::CommandBufferBeginInfo());
 		device.computeCommandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, pipeline);
 		device.computeCommandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, pipelineLayout, 0, {descriptorSet}, {});
-		// Needed because of clspv non-uniform workgroup support: https://github.com/google/clspv/blob/master/docs/OpenCLCOnVulkan.md#module-scope-push-constants
-		uint32_t push_constants[3] = {0, 0, 0};
-		device.computeCommandBuffer.pushConstants(pipelineLayout, vk::ShaderStageFlagBits::eCompute, 0, push_constant_size_bytes, push_constants);
 		device.computeCommandBuffer.dispatch(numWorkgroups, 1, 1);
 		device.computeCommandBuffer.pipelineBarrier(
 			vk::PipelineStageFlagBits::eComputeShader, 
@@ -226,8 +223,7 @@ namespace easyvk {
 	        shaderModule(initShaderModule(_device, filepath)),
        		buffers(_buffers) {
 			descriptorSetLayout = createDescriptorSetLayout(device, buffers.size());
-			auto pushConstantRange = vk::PushConstantRange(vk::ShaderStageFlagBits::eCompute, 0, push_constant_size_bytes);
-			auto createInfo = vk::PipelineLayoutCreateInfo(static_cast<vk::PipelineLayoutCreateFlags>(0), descriptorSetLayout, pushConstantRange);
+			auto createInfo = vk::PipelineLayoutCreateInfo(static_cast<vk::PipelineLayoutCreateFlags>(0), descriptorSetLayout);
 			pipelineLayout = device.device.createPipelineLayout(createInfo);
 			auto poolSize = vk::DescriptorPoolSize(vk::DescriptorType::eStorageBuffer, buffers.size());
 			auto descriptorSizes = std::array<vk::DescriptorPoolSize, 1>({poolSize});
